@@ -95,6 +95,10 @@ const SERIES_COLORS = [
 ]
 const LARGE_DATASET_POINT_COUNT = 1_000
 const RIGHT_EDGE_TOLERANCE_PERCENT = 0.5
+const AXIS_RANGE_PADDING_FACTOR = 1.2
+const MINIMUM_AXIS_HALF_STEPS = 2
+// 抵消十进制展示步长的浮点长尾，防止已对齐边界被误扩一格。
+const AXIS_STEP_ALIGNMENT_EPSILON = 1e-9
 
 const props = defineProps<{
   group: HvacTrendGroup
@@ -258,7 +262,7 @@ function buildOption(zoom: ZoomWindow | null): EChartsCoreOption {
   )
   const precision = groupPrecision(props.group)
   const displayStep = 10 ** -precision
-  const axisExtent = singleValueAxisExtent(props.group, displayStep)
+  const axisExtent = dataAxisExtent(props.group, displayStep)
   return {
     animation: !reducedMotion && pointCount < LARGE_DATASET_POINT_COUNT,
     animationDuration: reducedMotion || pointCount >= LARGE_DATASET_POINT_COUNT
@@ -325,8 +329,11 @@ function buildOption(zoom: ZoomWindow | null): EChartsCoreOption {
   }
 }
 
-/** 单一有效值以自身和展示精度生成留白；多值继续交给 ECharts 自动缩放。 */
-function singleValueAxisExtent(
+/**
+ * 纵轴围绕对齐后的数据中点对称扩展，并至少在上下各保留两个展示步长；
+ * 避免窄幅波动贴边或偏在一侧，同时保证边界标签在既有精度下可区分。
+ */
+function dataAxisExtent(
   group: HvacTrendGroup,
   displayStep: number,
 ): { min?: number; max?: number } {
@@ -336,9 +343,20 @@ function singleValueAxisExtent(
   if (values.length === 0) return {}
   const minimum = Math.min(...values)
   const maximum = Math.max(...values)
-  if (minimum !== maximum) return {}
-  const padding = Math.max(Math.abs(minimum) * 0.1, displayStep * 2)
-  return { min: minimum - padding, max: maximum + padding }
+  const centerSteps = Math.round(((minimum + maximum) / 2) / displayStep)
+  const center = centerSteps * displayStep
+  const requiredHalfSteps = Math.ceil(
+    (Math.max(center - minimum, maximum - center) / displayStep)
+      - AXIS_STEP_ALIGNMENT_EPSILON,
+  )
+  const halfSteps = Math.max(
+    MINIMUM_AXIS_HALF_STEPS,
+    Math.ceil(requiredHalfSteps * AXIS_RANGE_PADDING_FACTOR),
+  )
+  return {
+    min: Number(((centerSteps - halfSteps) * displayStep).toPrecision(15)),
+    max: Number(((centerSteps + halfSteps) * displayStep).toPrecision(15)),
+  }
 }
 
 /** 同单位系列共用其中最高展示精度，避免共享纵轴丢失任一系列的小数信息。 */
