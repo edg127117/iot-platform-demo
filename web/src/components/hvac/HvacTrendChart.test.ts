@@ -434,8 +434,64 @@ describe('HvacTrendChart', () => {
     expect(yAxis.name).toBe('无量纲')
     expect(yAxis.min).toBeCloseTo(2.88)
     expect(yAxis.max).toBeCloseTo(3.52)
+    expect(yAxis.minInterval).toBeCloseTo(0.01)
     expect(yAxis.axisLabel.formatter(2.9339999999999997)).toBe('2.93')
   })
+
+  it.each([
+    {
+      unit: 'A',
+      precision: 1,
+      minimumInterval: 0.1,
+      values: [4.99, 5, 5.01],
+      ticks: [4.9, 5, 5.1],
+    },
+    {
+      unit: 'V',
+      precision: 0,
+      minimumInterval: 1,
+      values: [219.99, 220, 220.01],
+      ticks: [219, 220, 221],
+    },
+    {
+      unit: 'kW',
+      precision: 1,
+      minimumInterval: 0.1,
+      values: [1.09, 1.1, 1.11],
+      ticks: [1, 1.1, 1.2],
+    },
+  ])(
+    'keeps narrow $unit axis labels distinct at business precision',
+    ({ unit, precision, minimumInterval, values, ticks }) => {
+      const sourceSeries = group.series[0]!
+      const sourcePoint = sourceSeries.points[0]!
+      mount(HvacTrendChart, {
+        props: {
+          group: {
+            unit,
+            series: [{
+              ...sourceSeries,
+              unit,
+              precision,
+              points: [
+                { ...sourcePoint, average: values[0]! },
+                { ...sourcePoint, time: 120_000, average: values[1]! },
+                { ...sourcePoint, time: 180_000, average: values[2]! },
+              ],
+            }],
+          },
+          from: 0,
+          to: 300_000,
+          resolutionMinutes: 1,
+        },
+      })
+
+      const yAxis = mocks.setOption.mock.calls[0][0].yAxis
+      const labels = ticks.map((tick) => yAxis.axisLabel.formatter(tick))
+      expect(yAxis.minInterval).toBeCloseTo(minimumInterval)
+      expect(new Set(labels).size).toBe(ticks.length)
+    },
+  )
 
   it('keeps one data-driven axis for all finite values in the same unit group', () => {
     const sourceSeries = group.series[0]!

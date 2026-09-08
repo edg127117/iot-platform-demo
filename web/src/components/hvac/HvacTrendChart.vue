@@ -256,8 +256,9 @@ function buildOption(zoom: ZoomWindow | null): EChartsCoreOption {
     (total, series) => total + series.points.length,
     0,
   )
-  const axisExtent = singleValueAxisExtent(props.group)
   const precision = groupPrecision(props.group)
+  const displayStep = 10 ** -precision
+  const axisExtent = singleValueAxisExtent(props.group, displayStep)
   return {
     animation: !reducedMotion && pointCount < LARGE_DATASET_POINT_COUNT,
     animationDuration: reducedMotion || pointCount >= LARGE_DATASET_POINT_COUNT
@@ -302,6 +303,8 @@ function buildOption(zoom: ZoomWindow | null): EChartsCoreOption {
       axisLine: { show: false },
       splitLine: { lineStyle: { color: 'rgba(126, 166, 198, 0.10)' } },
       scale: true,
+      // 刻度间隔不小于业务展示步长，避免窄幅波动被格式化成重复标签。
+      minInterval: displayStep,
       ...axisExtent,
     },
     dataZoom: [
@@ -325,6 +328,7 @@ function buildOption(zoom: ZoomWindow | null): EChartsCoreOption {
 /** 单一有效值以自身和展示精度生成留白；多值继续交给 ECharts 自动缩放。 */
 function singleValueAxisExtent(
   group: HvacTrendGroup,
+  displayStep: number,
 ): { min?: number; max?: number } {
   const values = group.series.flatMap((series) => series.points.flatMap((point) =>
     isFiniteAverage(point) ? [point.average] : [],
@@ -333,7 +337,6 @@ function singleValueAxisExtent(
   const minimum = Math.min(...values)
   const maximum = Math.max(...values)
   if (minimum !== maximum) return {}
-  const displayStep = 10 ** -groupPrecision(group)
   const padding = Math.max(Math.abs(minimum) * 0.1, displayStep * 2)
   return { min: minimum - padding, max: maximum + padding }
 }
