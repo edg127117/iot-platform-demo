@@ -432,8 +432,8 @@ describe('HvacTrendChart', () => {
 
     const yAxis = mocks.setOption.mock.calls[0][0].yAxis
     expect(yAxis.name).toBe('无量纲')
-    expect(yAxis.min).toBeCloseTo(2.88)
-    expect(yAxis.max).toBeCloseTo(3.52)
+    expect(yAxis.min).toBeCloseTo(3.18)
+    expect(yAxis.max).toBeCloseTo(3.22)
     expect(yAxis.minInterval).toBeCloseTo(0.01)
     expect(yAxis.axisLabel.formatter(2.9339999999999997)).toBe('2.93')
   })
@@ -443,26 +443,40 @@ describe('HvacTrendChart', () => {
       unit: 'A',
       precision: 1,
       minimumInterval: 0.1,
-      values: [4.99, 5, 5.01],
+      values: [4.999, 5.003, 5.006],
       ticks: [4.9, 5, 5.1],
+      expectedMinimum: 4.8,
+      expectedMaximum: 5.2,
     },
     {
       unit: 'V',
       precision: 0,
       minimumInterval: 1,
-      values: [219.99, 220, 220.01],
+      values: [220.051, 220.052, 220.055],
       ticks: [219, 220, 221],
+      expectedMinimum: 218,
+      expectedMaximum: 222,
     },
     {
       unit: 'kW',
       precision: 1,
       minimumInterval: 0.1,
-      values: [1.09, 1.1, 1.11],
+      values: [1.101, 1.102, 1.104],
       ticks: [1, 1.1, 1.2],
+      expectedMinimum: 0.9,
+      expectedMaximum: 1.3,
     },
   ])(
     'keeps narrow $unit axis labels distinct at business precision',
-    ({ unit, precision, minimumInterval, values, ticks }) => {
+    ({
+      unit,
+      precision,
+      minimumInterval,
+      values,
+      ticks,
+      expectedMinimum,
+      expectedMaximum,
+    }) => {
       const sourceSeries = group.series[0]!
       const sourcePoint = sourceSeries.points[0]!
       mount(HvacTrendChart, {
@@ -489,6 +503,8 @@ describe('HvacTrendChart', () => {
       const yAxis = mocks.setOption.mock.calls[0][0].yAxis
       const labels = ticks.map((tick) => yAxis.axisLabel.formatter(tick))
       expect(yAxis.minInterval).toBeCloseTo(minimumInterval)
+      expect(yAxis.min).toBeCloseTo(expectedMinimum)
+      expect(yAxis.max).toBeCloseTo(expectedMaximum)
       expect(new Set(labels).size).toBe(ticks.length)
     },
   )
@@ -521,8 +537,8 @@ describe('HvacTrendChart', () => {
 
     const yAxis = mocks.setOption.mock.calls[0][0].yAxis
     expect(yAxis).toMatchObject({ name: '%', scale: true })
-    expect(yAxis.min).toBeUndefined()
-    expect(yAxis.max).toBeUndefined()
+    expect(yAxis.min).toBeCloseTo(56.8)
+    expect(yAxis.max).toBeCloseTo(75.8)
     expect(yAxis.axisLabel.formatter(58.400000000000006)).toBe('58.4')
   })
 
